@@ -107,3 +107,6 @@ services:
       - PYTHONUNBUFFERED=1
 networks: {}
 ```
+
+访问后台：http://服务器IP:5786/
+节点地址：http://您的IP:5786/sub?token=“TOKEN”
