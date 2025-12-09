@@ -21,8 +21,8 @@ jobs:
 
       - name: Build Docker image
         run: |
-          docker build -t your-dockerhub-username/node_name:latest .
+          docker build -t 999k923/node_name:latest .
 
       - name: Push Docker image
         run: |
-          docker push your-dockerhub-username/node_name:latest
+          docker push 999k923/node_name:latest
