@@ -3,6 +3,35 @@
 <head>
     <meta charset="UTF-8">
     <title>Node Manager</title>
+    <style>
+        table {
+            border-collapse: collapse;
+            width: 100%;
+            table-layout: fixed; /* 固定列宽 */
+        }
+        th, td {
+            border: 1px solid #ccc;
+            padding: 4px;
+            text-align: left;
+            word-wrap: break-word; /* 长文本换行 */
+        }
+        td.link-column {
+            max-width: 300px; /* 限制链接列最大宽度 */
+            overflow: hidden;
+            text-overflow: ellipsis; /* 超长显示省略号 */
+            white-space: nowrap; /* 不换行，显示省略号 */
+        }
+        td.name-column {
+            max-width: 150px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+        ul {
+            list-style-type: none;
+            padding-left: 0;
+        }
+    </style>
 </head>
 <body>
     <h1>节点管理后台</h1>
@@ -39,7 +68,9 @@
                 <ul>
                     {% for node in nodes if node.group_id == group.id %}
                         <li>
-                            {{ node.sort_order }} - {{ node.name }} - {{ node.link }} - {{ '✅' if node.enabled else '❌' }}
+                            {{ node.sort_order }} - {{ node.name }} - 
+                            <span style="max-width: 300px; display: inline-block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">{{ node.link }}</span> - 
+                            {{ '✅' if node.enabled else '❌' }}
                             <a href="{{ url_for('move_up', node_id=node.id) }}">↑</a>
                             <a href="{{ url_for('move_down', node_id=node.id) }}">↓</a>
                             <a href="{{ url_for('toggle_node', node_id=node.id) }}">切换</a>
@@ -57,19 +88,19 @@
     </ul>
 
     <h2>独立节点列表</h2>
-    <table border="1">
+    <table>
         <tr>
             <th>ID</th>
-            <th>名称</th>
-            <th>链接</th>
+            <th class="name-column">名称</th>
+            <th class="link-column">链接</th>
             <th>启用</th>
             <th>操作</th>
         </tr>
         {% for node in nodes if not node.group_id %}
         <tr>
             <td>{{ node.id }}</td>
-            <td>{{ node.name }}</td>
-            <td>{{ node.link }}</td>
+            <td class="name-column">{{ node.name }}</td>
+            <td class="link-column">{{ node.link }}</td>
             <td>{{ '✅' if node.enabled else '❌' }}</td>
             <td>
                 <a href="{{ url_for('move_up', node_id=node.id) }}">↑</a>
