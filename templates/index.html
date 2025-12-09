@@ -7,11 +7,17 @@
 <body>
     <h1>节点管理后台</h1>
 
-    <!-- 添加节点 -->
+    <!-- 添加单节点 -->
     <form action="{{ url_for('add_node') }}" method="post">
         名称: <input type="text" name="name" required>
         链接: <input type="text" name="link" required>
-        <button type="submit">添加</button>
+        <button type="submit">添加节点</button>
+    </form>
+
+    <!-- 导入订阅集合 -->
+    <form action="{{ url_for('import_sub') }}" method="post">
+        订阅 URL: <input type="text" name="sub_url" required>
+        <button type="submit">导入订阅</button>
     </form>
 
     {% with messages = get_flashed_messages(with_categories=true) %}
@@ -24,7 +30,33 @@
       {% endif %}
     {% endwith %}
 
-    <h2>节点列表</h2>
+    <h2>订阅集合列表</h2>
+    <ul>
+        {% for group in groups %}
+            <li>
+                {{ group.url }}
+                <a href="{{ url_for('delete_group', group_id=group.id) }}">删除订阅集合</a>
+                <ul>
+                    {% for node in nodes if node.group_id == group.id %}
+                        <li>
+                            {{ node.sort_order }} - {{ node.name }} - {{ node.link }} - {{ '✅' if node.enabled else '❌' }}
+                            <a href="{{ url_for('move_up', node_id=node.id) }}">↑</a>
+                            <a href="{{ url_for('move_down', node_id=node.id) }}">↓</a>
+                            <a href="{{ url_for('toggle_node', node_id=node.id) }}">切换</a>
+                            <a href="{{ url_for('delete_node', node_id=node.id) }}">删除</a>
+                            <form action="{{ url_for('edit_node', node_id=node.id) }}" method="post" style="display:inline">
+                                名称: <input type="text" name="name" value="{{ node.name }}">
+                                链接: <input type="text" name="link" value="{{ node.link }}">
+                                <button type="submit">修改</button>
+                            </form>
+                        </li>
+                    {% endfor %}
+                </ul>
+            </li>
+        {% endfor %}
+    </ul>
+
+    <h2>独立节点列表</h2>
     <table border="1">
         <tr>
             <th>ID</th>
@@ -33,13 +65,15 @@
             <th>启用</th>
             <th>操作</th>
         </tr>
-        {% for node in nodes %}
+        {% for node in nodes if not node.group_id %}
         <tr>
             <td>{{ node.id }}</td>
             <td>{{ node.name }}</td>
             <td>{{ node.link }}</td>
             <td>{{ '✅' if node.enabled else '❌' }}</td>
             <td>
+                <a href="{{ url_for('move_up', node_id=node.id) }}">↑</a>
+                <a href="{{ url_for('move_down', node_id=node.id) }}">↓</a>
                 <a href="{{ url_for('toggle_node', node_id=node.id) }}">切换</a>
                 <a href="{{ url_for('delete_node', node_id=node.id) }}">删除</a>
                 <form action="{{ url_for('edit_node', node_id=node.id) }}" method="post" style="display:inline">
