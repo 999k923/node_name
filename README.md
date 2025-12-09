@@ -47,7 +47,7 @@ WEB_USER = "mimayoudianfuza"
 
 WEB_PASS = "zhendehenfuza"  
 
-更改用户名密码编辑app.py文件，修改后重启生效
+更改用户名密码编辑app.py文件，46行和47行修改后重启生效
 ```bash
 nano app.py
 ```
@@ -106,6 +106,8 @@ services:
       - /opt/stacks/node/data/access_token.txt:/app/access_token.txt
     environment:
       - PYTHONUNBUFFERED=1
+      - NODE_ADMIN_USER=admin #登录后台用户名自行更改
+      - NODE_ADMIN_PASS=abc123 #密码自行更改
 networks: {}
 ```
 
