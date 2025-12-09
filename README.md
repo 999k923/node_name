@@ -62,11 +62,11 @@ systemctl restart node_sub
 ```
 停止：
 ```bash
-bash stop.sh
+./stop.sh
 ```
 启动：
 ```bash
-bash run.sh
+./run.sh
 ```
 ## 工具信息
 reset_node_id.py节点删除之后序号不连贯，文件放到数据库一个文件目录，运行序号从新生成。
