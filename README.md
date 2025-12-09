@@ -21,7 +21,7 @@ Web后台新增，修改，删除节点。
 
 ## 一键部署，自动完成。
 ```bash
-git clone https://github.com/999k923/node_sub_manager.git && cd node_sub_manager && chmod +x deploy.sh run.sh stop.sh && ./deploy.sh
+git clone https://github.com/999k923/node_name.git && cd node_name && chmod +x deploy.sh run.sh stop.sh && ./deploy.sh
 ```
 
 访问后台：`http://服务器IP:5786/`  
