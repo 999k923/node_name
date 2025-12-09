@@ -41,10 +41,10 @@ def get_token():
         return token
 
 # ---------------------------
-# Basic Auth
+# Basic Auth（支持环境变量）
 # ---------------------------
-WEB_USER = "mimayoudianfuza"
-WEB_PASS = "zhendehenfuza"
+WEB_USER = os.environ.get("NODE_ADMIN_USER", "mimayoudianfuza")
+WEB_PASS = os.environ.get("NODE_ADMIN_PASS", "zhendehenfuza")
 
 def check_auth(username, password):
     return username == WEB_USER and password == WEB_PASS
