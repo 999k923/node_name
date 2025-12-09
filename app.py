@@ -1,20 +1,20 @@
 from flask import Flask, Response, render_template, request, redirect, url_for, flash, abort
-from models import db, Node
+from models import db, Node, SubscriptionGroup
 import base64
 import os
 import re
-from update_node_name import update_nodes  # 安全导入，无循环依赖
 import string
 import random
 from functools import wraps
+import requests
+from update_node_name import update_nodes  # 安全导入，无循环依赖
 
 app = Flask(__name__)
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///nodes.db'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
-app.secret_key = "secret_key_for_flash"  # 防止 Flask flash 报错
+app.secret_key = "secret_key_for_flash"
 db.init_app(app)
 
-# 初始化数据库
 with app.app_context():
     if not os.path.exists("nodes.db"):
         db.create_all()
@@ -41,8 +41,8 @@ def get_token():
 # ---------------------------
 # Web 后台用户名密码
 # ---------------------------
-WEB_USER = "mimayoudianfuza" # 手动填写用户名
-WEB_PASS = "zhendehenfuza"  # 手动填写密码
+WEB_USER = "mimayoudianfuza"
+WEB_PASS = "zhendehenfuza"
 
 def check_auth(username, password):
     return username == WEB_USER and password == WEB_PASS
@@ -54,6 +54,7 @@ def authenticate():
     )
 
 def requires_auth(f):
+    from functools import wraps
     @wraps(f)
     def decorated(*args, **kwargs):
         auth = request.authorization
@@ -63,25 +64,35 @@ def requires_auth(f):
     return decorated
 
 # ---------------------------
+# 节点重排函数
+# ---------------------------
+def reorder_group_nodes(group_id):
+    nodes = Node.query.filter_by(group_id=group_id).order_by(Node.sort_order).all()
+    for i, node in enumerate(nodes, start=1):
+        node.sort_order = i
+    db.session.commit()
+
+# ---------------------------
 # Web管理后台
 # ---------------------------
 @app.route("/")
 @requires_auth
 def index():
-    nodes = Node.query.all()
-    token = get_token()  # 可选：在网页显示 token
-    return render_template("index.html", nodes=nodes, token=token)
+    nodes = Node.query.order_by(Node.sort_order).all()
+    groups = SubscriptionGroup.query.all()
+    token = get_token()
+    return render_template("index.html", nodes=nodes, groups=groups, token=token)
 
-
+# 添加单个节点
 @app.route("/add", methods=["POST"])
 @requires_auth
 def add_node():
     name = request.form.get("name", "").strip()
     link = request.form.get("link", "").strip()
-    link = re.sub(r"#.*$", "", link)  # 去掉 link 自带的备注
+    link = re.sub(r"#.*$", "", link)
 
     if name and link:
-        node = Node(name=name, link=link)
+        node = Node(name=name, link=link, sort_order=Node.query.count()+1)
         try:
             db.session.add(node)
             db.session.commit()
@@ -94,50 +105,9 @@ def add_node():
             flash(f"添加节点失败: {e}", "danger")
     else:
         flash("节点名称或链接不能为空", "warning")
-
     return redirect(url_for("index"))
 
-
-@app.route("/delete/<int:node_id>")
-@requires_auth
-def delete_node(node_id):
-    node = Node.query.get(node_id)
-    if node:
-        try:
-            db.session.delete(node)
-            db.session.commit()
-            try:
-                update_nodes()
-            except Exception as e:
-                print(f"update_nodes 出错: {e}")
-        except Exception as e:
-            db.session.rollback()
-            flash(f"删除节点失败: {e}", "danger")
-    else:
-        flash("节点不存在", "warning")
-    return redirect(url_for("index"))
-
-
-@app.route("/toggle/<int:node_id>")
-@requires_auth
-def toggle_node(node_id):
-    node = Node.query.get(node_id)
-    if node:
-        try:
-            node.enabled = not node.enabled
-            db.session.commit()
-            try:
-                update_nodes()
-            except Exception as e:
-                print(f"update_nodes 出错: {e}")
-        except Exception as e:
-            db.session.rollback()
-            flash(f"切换节点状态失败: {e}", "danger")
-    else:
-        flash("节点不存在", "warning")
-    return redirect(url_for("index"))
-
-
+# 编辑节点
 @app.route("/edit/<int:node_id>", methods=["POST"])
 @requires_auth
 def edit_node(node_id):
@@ -162,9 +132,123 @@ def edit_node(node_id):
         flash("节点不存在", "warning")
     return redirect(url_for("index"))
 
+# 删除节点
+@app.route("/delete/<int:node_id>")
+@requires_auth
+def delete_node(node_id):
+    node = Node.query.get(node_id)
+    if node:
+        group_id = node.group_id
+        try:
+            db.session.delete(node)
+            db.session.commit()
+            if group_id:
+                reorder_group_nodes(group_id)
+        except Exception as e:
+            db.session.rollback()
+            flash(f"删除节点失败: {e}", "danger")
+    else:
+        flash("节点不存在", "warning")
+    return redirect(url_for("index"))
+
+# 切换节点状态
+@app.route("/toggle/<int:node_id>")
+@requires_auth
+def toggle_node(node_id):
+    node = Node.query.get(node_id)
+    if node:
+        try:
+            node.enabled = not node.enabled
+            db.session.commit()
+            try:
+                update_nodes()
+            except Exception as e:
+                print(f"update_nodes 出错: {e}")
+        except Exception as e:
+            db.session.rollback()
+            flash(f"切换节点状态失败: {e}", "danger")
+    else:
+        flash("节点不存在", "warning")
+    return redirect(url_for("index"))
 
 # ---------------------------
-# 动态订阅生成
+# 订阅集合导入
+# ---------------------------
+@app.route("/import_sub", methods=["POST"])
+@requires_auth
+def import_sub():
+    sub_url = request.form.get("sub_url", "").strip()
+    if not sub_url:
+        flash("订阅 URL 不能为空", "warning")
+        return redirect(url_for("index"))
+    try:
+        r = requests.get(sub_url, timeout=10)
+        r.raise_for_status()
+        content_b64 = r.text.strip()
+        content = base64.b64decode(content_b64).decode()
+        lines = [line.strip() for line in content.splitlines() if line.strip()]
+
+        group = SubscriptionGroup(url=sub_url)
+        db.session.add(group)
+        db.session.commit()
+
+        for i, line in enumerate(lines, start=1):
+            n = Node(name=f"节点{i}", link=line, enabled=True, group_id=group.id, sort_order=i)
+            db.session.add(n)
+        db.session.commit()
+        flash(f"订阅导入成功，共 {len(lines)} 个节点", "success")
+    except Exception as e:
+        db.session.rollback()
+        flash(f"导入失败: {e}", "danger")
+    return redirect(url_for("index"))
+
+# 删除订阅集合及其节点
+@app.route("/delete_group/<int:group_id>")
+@requires_auth
+def delete_group(group_id):
+    group = SubscriptionGroup.query.get(group_id)
+    if group:
+        try:
+            Node.query.filter_by(group_id=group.id).delete()
+            db.session.delete(group)
+            db.session.commit()
+            flash("订阅集合及其节点已删除", "success")
+        except Exception as e:
+            db.session.rollback()
+            flash(f"删除失败: {e}", "danger")
+    else:
+        flash("订阅集合不存在", "warning")
+    return redirect(url_for("index"))
+
+# 节点上下移动
+@app.route("/move_up/<int:node_id>")
+@requires_auth
+def move_up(node_id):
+    node = Node.query.get(node_id)
+    if node and node.group_id:
+        prev_node = Node.query.filter_by(group_id=node.group_id)\
+            .filter(Node.sort_order < node.sort_order)\
+            .order_by(Node.sort_order.desc()).first()
+        if prev_node:
+            node.sort_order, prev_node.sort_order = prev_node.sort_order, node.sort_order
+            db.session.commit()
+    return redirect(url_for("index"))
+
+@app.route("/move_down/<int:node_id>")
+@requires_auth
+def move_down(node_id):
+    node = Node.query.get(node_id)
+    if node and node.group_id:
+        next_node = Node.query.filter_by(group_id=node.group_id)\
+            .filter(Node.sort_order > node.sort_order)\
+            .order_by(Node.sort_order).first()
+        if next_node:
+            node.sort_order, next_node.sort_order = next_node.sort_order, node.sort_order
+            db.session.commit()
+    return redirect(url_for("index"))
+
+# ---------------------------
+# 动态订阅输出
 # ---------------------------
 @app.route("/sub")
 def sub():
@@ -172,13 +256,12 @@ def sub():
     if token != get_token():
         abort(403, description="访问订阅需要正确的 token")
 
-    nodes = Node.query.filter_by(enabled=True).all()
+    nodes = Node.query.filter_by(enabled=True).order_by(Node.sort_order).all()
     out_links = []
 
     for n in nodes:
         link = n.link.strip()
 
-        # VMESS
         if link.startswith("vmess://"):
             import json
             try:
@@ -192,13 +275,11 @@ def sub():
                 out_links.append(link)
             continue
 
-        # VLESS
         elif link.startswith("vless://"):
             clean = re.sub(r"#.*$", "", link)
             out_links.append(f"{clean}#{n.name}")
             continue
 
-        # 其它协议
         else:
             clean = re.sub(r"#.*$", "", link)
             out_links.append(f"{clean}#{n.name}")
@@ -206,7 +287,6 @@ def sub():
     sub_content = "\n".join(out_links)
     sub_b64 = base64.b64encode(sub_content.encode()).decode()
     return Response(sub_b64, mimetype="text/plain")
-
 
 if __name__ == "__main__":
     print(f"访问订阅链接时需要使用 token: {get_token()}")
