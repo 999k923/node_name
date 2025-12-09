@@ -10,7 +10,7 @@ Web后台新增，修改，删除节点。
 访问后台：`http://服务器IP:5786/`  
 订阅地址：`http://您的IP:5786/sub?token=“TOKEN”`
 
-<img width="1012" height="680" alt="image" src="https://github.com/user-attachments/assets/48df43a8-beb6-4af2-9eac-78d828a51d29" />
+<img width="1093" height="559" alt="image" src="https://github.com/user-attachments/assets/39618c3f-5aaf-4279-9c2f-443ea3b33ba2" />
 
 
 
@@ -22,7 +22,7 @@ Web后台新增，修改，删除节点。
 
 ## 一键部署，自动完成。
 ```bash
-git clone https://github.com/999k923/node_name.git && cd node_name && chmod +x deploy.sh run.sh stop.sh && ./deploy.sh
+git clone https://github.com/999k923/node_sub_manager.git && cd node_sub_manager && chmod +x deploy.sh run.sh stop.sh && ./deploy.sh
 ```
 
 访问后台：`http://服务器IP:5786/`  
