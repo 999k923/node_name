@@ -1,29 +1,29 @@
 #!/bin/bash
-# stop.sh - 停止 Node Subscription Manager 服务，并取消开机自启
+# stop_node.sh - 一键停止 Node Subscription Manager 并退出虚拟环境
 
+APP_DIR="/root/node_name"
+VENV_DIR="$APP_DIR/venv"
 SERVICE_NAME="node_sub"
 
 echo "=== 停止 systemd 服务 ==="
-systemctl stop $SERVICE_NAME
+sudo systemctl stop $SERVICE_NAME
+echo "服务已停止。"
 
 echo "=== 取消开机自启 ==="
-systemctl disable $SERVICE_NAME
+sudo systemctl disable $SERVICE_NAME
+echo "开机自启已取消。"
 
-echo "=== 强制杀掉残留 gunicorn 进程 ==="
-PIDS=$(ps aux | grep gunicorn | grep -v grep | awk '{print $2}')
-if [ -n "$PIDS" ]; then
-    echo "杀掉进程: $PIDS"
-    kill -9 $PIDS
+echo "=== 检查服务状态 ==="
+sudo systemctl status $SERVICE_NAME --no-pager -n 20
+
+# ---------------------------
+# 退出虚拟环境（如果当前 shell 已激活）
+# ---------------------------
+if [[ "$VIRTUAL_ENV" == "$VENV_DIR" ]]; then
+    deactivate
+    echo "已退出虚拟环境。"
 else
-    echo "没有找到运行中的 gunicorn 进程"
+    echo "当前 shell 未激活虚拟环境，无需退出。"
 fi
 
-echo "=== 删除 systemd 文件（可选） ==="
-SERVICE_FILE="/etc/systemd/system/$SERVICE_NAME.service"
-if [ -f "$SERVICE_FILE" ]; then
-    rm -f $SERVICE_FILE
-    systemctl daemon-reload
-    echo "已删除 systemd 文件: $SERVICE_FILE"
-fi
-
-echo "=== Node Subscription Manager 已完全停止 ==="
+echo "✅ 操作完成。"
