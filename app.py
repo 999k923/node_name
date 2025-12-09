@@ -297,4 +297,4 @@ def sub():
 # ---------------------------
 if __name__ == "__main__":
     print(f"访问订阅链接时需要使用 token: {get_token()}")
-    app.run(host="0.0.0.0", port=5786, debug=True)
+    app.run(host="::", port=5786, debug=True)
