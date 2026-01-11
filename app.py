@@ -75,6 +75,14 @@ def reset_sort_order(group_id=None):
             node.sort_order = idx
         db.session.commit()
 
+def move_node_to_position(node, new_position):
+    nodes = Node.query.filter_by(group_id=node.group_id).order_by(Node.sort_order).all()
+    nodes = [existing for existing in nodes if existing.id != node.id]
+    new_position = max(1, min(new_position, len(nodes) + 1))
+    nodes.insert(new_position - 1, node)
+    for idx, existing in enumerate(nodes, start=1):
+        existing.sort_order = idx
+
 # ---------------------------
 # Web 后台
 # ---------------------------
@@ -99,7 +107,7 @@ def add_node():
     link = re.sub(r"#.*$", "", link)
     if name and link:
         # sort_order 最大 +1
-        max_order = db.session.query(func.max(Node.sort_order)).scalar() or 0
+        max_order = db.session.query(func.max(Node.sort_order)).filter(Node.group_id == None).scalar() or 0
         node = Node(name=name, link=link, sort_order=max_order+1)
         db.session.add(node)
         db.session.commit()
@@ -268,10 +276,18 @@ def edit_node(node_id):
     if node:
         name = request.form.get("name", "").strip()
         link = request.form.get("link", "").strip()
+        sort_order_raw = request.form.get("sort_order", "").strip()
         if name:
             node.name = name
         if link:
             node.link = re.sub(r"#.*$", "", link)
+        if sort_order_raw:
+            try:
+                new_position = int(sort_order_raw)
+                if new_position != node.sort_order:
+                    move_node_to_position(node, new_position)
+            except ValueError:
+                flash("序号必须是整数", "warning")
         db.session.commit()
         try:
             update_nodes()
